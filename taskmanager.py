@@ -77,6 +77,7 @@ def delete():
     db.session.commit()
     return redirect("/")
 
+db.create_all()
 
 if __name__ == "__main__":
     db.create_all()
