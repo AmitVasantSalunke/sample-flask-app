@@ -2,9 +2,8 @@ import os
 
 from flask import Flask
 from flask import render_template
-from flask import request
-from flask import redirect
-
+from flask import request, session
+from flask import redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 
 
@@ -28,6 +27,7 @@ DB_URL = 'postgresql+psycopg2://{user}:{pw}@{url}/{db}'.format(
     db=POSTGRES_DATABASE)
 
 app = Flask(__name__)
+app.secret_key = "super secret key"
 app.config['SQLALCHEMY_DATABASE_URI'] = DB_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # silence the deprecation warning
 
@@ -39,9 +39,11 @@ class Task(db.Model):
     def __repr__(self):
         return "<Title: {}>".format(self.title)
 
-
 @app.route("/", methods=["GET", "POST"])
 def home():
+    if not session.get('logged_in'):
+        return render_template('login.html')
+
     tasks = None
     if request.form:
         try:
@@ -53,7 +55,6 @@ def home():
             print(e)
     tasks = Task.query.all()
     return render_template("index.html", tasks=tasks)
-
 
 @app.route("/update", methods=["POST"])
 def update():
@@ -68,7 +69,6 @@ def update():
         print(e)
     return redirect("/")
 
-
 @app.route("/delete", methods=["POST"])
 def delete():
     title = request.form.get("title")
@@ -76,6 +76,22 @@ def delete():
     db.session.delete(task)
     db.session.commit()
     return redirect("/")
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        if request.form['username'] != 'admin' or request.form['password'] != 'admin':
+            error = 'Invalid Credentials. Please try again.'
+        else:
+            session['logged_in'] = True
+            return redirect(url_for('home'))
+    return render_template('login.html', error=error)
+
+@app.route("/logout")
+def logout():
+    session['logged_in'] = False
+    return home()
 
 db.create_all()
 
